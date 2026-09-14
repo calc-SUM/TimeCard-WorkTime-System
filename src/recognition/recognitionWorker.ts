@@ -1,0 +1,15 @@
+/// <reference lib="webworker" />
+import { getFixedRecognizer } from './recognizerAdapter'
+import { loadOpenCvInWorker } from './opencvWorkerLoader'
+import { processRecognitionPhoto } from './recognitionPipeline'
+import type { GrayImage } from './recognitionTypes'
+import type { RecognitionWorkerRequest, RecognitionWorkerResponse } from './workerProtocol'
+
+const scope = self as DedicatedWorkerGlobalScope
+let cvPromise: ReturnType<typeof loadOpenCvInWorker> | undefined
+let recognizer: ReturnType<typeof getFixedRecognizer> | undefined
+const send=(message:RecognitionWorkerResponse)=>scope.postMessage(message)
+
+async function initialize(requestId:string){const cvStart=performance.now();cvPromise??=loadOpenCvInWorker();const cv=await cvPromise,openCvInitializationMs=performance.now()-cvStart,recognizerStart=performance.now();recognizer??=getFixedRecognizer();const recognizerInitializationMs=performance.now()-recognizerStart,version=/OpenCV\s+([\d.]+)/.exec(cv.getBuildInformation())?.[1]??null;send({type:'initialized',requestId,version,smoke:{mat:true,getBuildInformation:true,resize:true,warpPerspective:true},timing:{openCvInitializationMs,recognizerInitializationMs}})}
+async function decode(cv:Awaited<ReturnType<typeof loadOpenCvInWorker>>,bytes:ArrayBuffer,mimeType:string):Promise<GrayImage>{if(typeof createImageBitmap!=='function'||typeof OffscreenCanvas==='undefined')throw Error('worker_image_decode_unsupported');const bitmap=await createImageBitmap(new Blob([bytes],{type:mimeType})),canvas=new OffscreenCanvas(bitmap.width,bitmap.height),context=canvas.getContext('2d',{willReadFrequently:true});if(!context){bitmap.close();throw Error('worker_canvas_unavailable')}try{context.drawImage(bitmap,0,0);const pixels=context.getImageData(0,0,bitmap.width,bitmap.height).data;if(mimeType==='image/png'){const data=new Uint8Array(bitmap.width*bitmap.height);for(let i=0,j=0;i<data.length;i++,j+=4)data[i]=Math.floor((pixels[j]*299+pixels[j+1]*587+pixels[j+2]*114)/1000);return{width:bitmap.width,height:bitmap.height,data}}const rgba=new cv.Mat(bitmap.height,bitmap.width,cv.CV_8UC4),gray=new cv.Mat();try{rgba.data.set(pixels);cv.cvtColor(rgba,gray,cv.COLOR_RGBA2GRAY);return{width:bitmap.width,height:bitmap.height,data:new Uint8Array(gray.data)}}finally{rgba.delete();gray.delete()}}finally{bitmap.close()}}
+scope.onmessage=async(event:MessageEvent<RecognitionWorkerRequest>)=>{const request=event.data;try{if(request.type==='initialize'){await initialize(request.requestId);return}if(request.type==='dispose'){send({type:'disposed',requestId:request.requestId});scope.close();return}const cv=await(cvPromise??=loadOpenCvInWorker());recognizer??=getFixedRecognizer();const raw=await decode(cv,request.bytes,request.mimeType),outcome=processRecognitionPhoto(cv,recognizer,raw,stage=>send({type:'progress',requestId:request.requestId,stage}));if(outcome.ok)send({type:'completed',requestId:request.requestId,result:outcome.result});else send({type:'failed',requestId:request.requestId,reason:outcome.reason})}catch(error){send({type:'failed',requestId:request.requestId,reason:error instanceof Error?error.message:String(error)})}}

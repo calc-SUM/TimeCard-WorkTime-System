@@ -1,0 +1,37 @@
+{
+  "schema": "timecard-hybrid-normalizer-trigger-v1",
+  "development_scope": ["3月", "4月", "5月", "6月", "7月", "8月"],
+  "holdout_policy": "2月は条件最適化に使用しない",
+  "primary_route": {
+    "original": "現行V1正規化",
+    "edge": "各glyph画像を上下2px物理cropし、元座標もy1+2/y2-2して正規化",
+    "use_edge_when": {
+      "scale_gain_gte": 0.24,
+      "max_edge_horizontal_span_ratio_gte": 0.70
+    }
+  },
+  "dual_route_escalation": {
+    "run_alternate_when_all": {
+      "primary_review_score_gte": 0.055,
+      "scale_gain_gte": 0.10,
+      "max_edge_horizontal_span_ratio_gte": 0.70
+    },
+    "selection": "OriginalとEdgeのreview_scoreが低い方を採用。同点はprimaryを維持。"
+  },
+  "development_result": {
+    "timestamp_count": 291,
+    "correct": 288,
+    "accuracy": 0.989691,
+    "edge_primary_count": 7,
+    "edge_primary_rate": 0.024055,
+    "dual_route_count": 4,
+    "dual_route_rate": 0.013746,
+    "review_count_after_hybrid": 17,
+    "baseline_review_count": 19
+  },
+  "threshold_stability": {
+    "primary_scale_gain_plateau": "0.22～0.269で288/291を維持（edge span 0.70）",
+    "dual_scale_gain_plateau": "0.08～0.12で4/291発火・288/291を維持",
+    "edge_span_plateau": "0.60～0.75で288/291を維持"
+  }
+}

@@ -1,0 +1,30 @@
+# dependencies
+
+node_modules/
+
+# build output
+
+dist/
+
+# environment / secrets
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc
+
+# local/editor files
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs / test output
+
+*.log
+coverage/

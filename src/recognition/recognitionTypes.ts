@@ -1,0 +1,10 @@
+export interface GrayImage{width:number;height:number;data:Uint8Array}
+export interface Point{x:number;y:number}
+export interface LineModel{slope:number;intercept:number}
+export interface VerticalCandidate{x:number;slope:number;weight:number;count:number}
+export interface VerticalGrid{xs:number[];matched:number;residuals:number[];slopes:number[]}
+export interface RegistrationQa{passed:boolean;verticalMatched:number;horizontalMatched:number;cornersInside:boolean;rowGapCv:number;horizontalScoreP10:number;verticalResidualMax:number}
+export interface RegistrationResult{ok:true;qa:RegistrationQa;verticalGrid:VerticalGrid;ys:number[];corners:Point[];homography:number[];rectified:GrayImage}
+export interface RegistrationError{ok:false;reason:'vertical_lattice'|'header_anchor'|'horizontal_lattice'}
+export type RegistrationOutcome=RegistrationResult|RegistrationError
+export interface RowBoundaryModel{fits:LineModel[];stripSequences:number[][];stripCenters:number[];rows:Array<{top:LineModel;bottom:LineModel}>}
